@@ -65,7 +65,7 @@ for (mycsvfile in list.files(pattern = "csv", path = get("csvpath"))) {
   # these are not necessary as we will transform and fix column names later
   # and then this removes any empty columns that are only NAs 
   df <- read_csv(paste(csvpath, mycsvfile, sep = "/"), col_names = FALSE) %>% 
-    slice(-c(1:2)) %>% 
+    slice(-1) %>% 
     select(
       where(
         ~!all(is.na(.x))
@@ -110,7 +110,7 @@ for (mycsvfile in list.files(pattern = "csv", path = get("csvpath"))) {
   this_identifier$ObsID <- NA
   this_identifier$MouseID <- NA
   this_identifier$CellID <- NA
-  this_identifier$Filename_IV <- NA
+  this_identifier$Filename_ISpike <- NA
   
   `Sweep 11 Resting Em (mV)` <- NA
   `Sweep 11 -10 pA step Steady-State Em` <- NA
@@ -178,12 +178,12 @@ for (mycsvfile in list.files(pattern = "csv", path = get("csvpath"))) {
                 (`Normalised Voltage (mV)` - lead(`Normalised Voltage (mV)`, 50)) >= 20) |
              ((`Normalised Voltage (mV)` - lag(`Normalised Voltage (mV)`, 100)) >= 20 &
                 (`Normalised Voltage (mV)` - lead(`Normalised Voltage (mV)`, 100)) >= 20)) %>% 
-    mutate(Filename_IV = mycsvfile)
+    mutate(Filename_ISpike = mycsvfile)
   
   sweeps2 <- df1 %>% 
     filter(lead(`dV/dT`) <= 0 &
              `dV/dT` > 0) %>% 
-    mutate(Filename_IV = mycsvfile)
+    mutate(Filename_ISpike = mycsvfile)
   
   all_APs_all_sweeps <- inner_join(sweeps1, sweeps2)
   
@@ -228,7 +228,7 @@ for (mycsvfile in list.files(pattern = "csv", path = get("csvpath"))) {
     as.data.frame()
   
   # match up filename to other identifiers in identifier data like ObsID, Mouse, and Cell
-  this_identifier <- identifiers %>% filter(Filename_IV == filename)
+  this_identifier <- identifiers %>% filter(Filename_ISpike == filename)
   
   # remove variables we don't need later
   rm(excessive_counts,
@@ -284,18 +284,18 @@ for (mycsvfile in list.files(pattern = "csv", path = get("csvpath"))) {
     firstAP_range <- firstAPsweep %>% 
       filter(between(`Time (ms)`,Time1, Time2))
     
-    
+    # Changed to 10 instead of 20
     `Threshold Em (mV)` <- firstAP_range %>% 
-      filter(lead(`dV/dT` > 20)) %>% 
+      filter(lead(`dV/dT` > 10)) %>% 
       slice(1) %>% 
       ungroup() %>% 
       select(`Voltage (mV)`) %>% 
       unlist() %>% 
       as.numeric()
     
-    
+    # Changed to 10 instead of 20
     `Threshold Time (ms)` <- firstAP_range %>% 
-      filter(lead(`dV/dT` > 20)) %>% 
+      filter(lead(`dV/dT` > 10)) %>% 
       slice(1) %>% 
       ungroup() %>% 
       select(`Time (ms)`) %>% 
@@ -390,7 +390,7 @@ for (mycsvfile in list.files(pattern = "csv", path = get("csvpath"))) {
     # create a dataframe of what rheobase value corresponds to what sweep
     # here we just said sweeps 10 through 20 with their corresponding values
     # from 50 to 550 with increasing 50 steps in between
-    rheobase_df <- data.frame(Sweep = c(10:21), Rheobase = c(seq(-20, 200, 20)))
+    rheobase_df <- data.frame(Sweep = c(1:21), Rheobase = c(seq(0, 400, 20)))
     
     `Rheobase (pA)` <- rheobase_df %>% 
       filter(Sweep == `Sweep # for 1st AP fired`) %>% 
@@ -560,7 +560,7 @@ for (mycsvfile in list.files(pattern = "csv", path = get("csvpath"))) {
       mutate(ObsID = this_identifier$ObsID,
              MouseID = this_identifier$MouseID,
              CellID = as.character(this_identifier$CellID),
-             Filename_IV = this_identifier$Filename_IV,
+             Filename_ISpike = this_identifier$Filename_ISpike,
              `Sweep 11 Resting Em (mV)` = `Resting Em`,
              `Sweep 11 -10 pA step Steady-State Em` = `-10 pA step Steady-State Em`,
              `Sweep 11 Resistance_in (MegaOhms)` = `Rin (MOhm)`,
@@ -591,7 +591,7 @@ for (mycsvfile in list.files(pattern = "csv", path = get("csvpath"))) {
   } else {finaldf <- tibble(ObsID = this_identifier$ObsID,
                             MouseID = this_identifier$MouseID,
                             CellID = as.character(this_identifier$CellID),
-                            Filename_IV = this_identifier$Filename_IV,
+                            Filename_ISpike = this_identifier$Filename_ISpike,
                             `Sweep 11 Resting Em (mV)` = `Resting Em`,
                             `Sweep 11 -10 pA step Steady-State Em` = `-10 pA step Steady-State Em`,
                             `Sweep 11 Resistance_in (MegaOhms)` = `Rin (MOhm)`,
@@ -672,15 +672,15 @@ unlink("Plots", recursive = TRUE)
 
 long_format_all_files_APs <- all_files_APs_all_sweeps %>% 
   ungroup() %>% 
-  group_by(`Filename_IV`, Sweep) %>% 
-  select(`Filename_IV`) %>% 
+  group_by(`Filename_ISpike`, Sweep) %>% 
+  select(`Filename_ISpike`) %>% 
   table() %>% 
   as.data.frame() 
 
 wide_format_all_files_APs <- all_files_APs_all_sweeps %>% 
   ungroup() %>% 
-  group_by(`Filename_IV`, Sweep) %>% 
-  select(`Filename_IV`) %>% 
+  group_by(`Filename_ISpike`, Sweep) %>% 
+  select(`Filename_ISpike`) %>% 
   table() %>% 
   as.data.frame() %>% 
   pivot_wider(names_from = Sweep, values_from = Freq)
@@ -688,3 +688,4 @@ wide_format_all_files_APs <- all_files_APs_all_sweeps %>%
 
 rstudioapi::showDialog(title = "Data Output Location",
                        message = "The output data from this script is saved in the 'Data Output' folder within the folder you previously selected.")
+
